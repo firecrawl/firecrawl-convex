@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0
+
+- `batchScrape` and `getBatchScrape` actions over `/v2/batch/scrape`, with
+  matching `FirecrawlClient` methods and a `BatchScrapeStatus` type. Batch
+  scrapes are stateless for now: the component starts the job and fetches its
+  status on request, without storing results or registering a webhook.
+
 ## 0.1.1
 
 Packaging fixes. No runtime changes.

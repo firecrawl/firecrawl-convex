@@ -150,6 +150,16 @@ export type SearchResponse = {
   developer?: Array<SearchResult | FirecrawlDocument>;
 };
 
+export type BatchScrapeStatus = {
+  status: "scraping" | "completed" | "failed" | "cancelled";
+  total?: number;
+  completed?: number;
+  creditsUsed?: number;
+  /** Set when more results are waiting; fetch it to page through them. */
+  next?: string;
+  data: FirecrawlDocument[];
+};
+
 export type CrawlOptions = {
   prompt?: string;
   includePaths?: string[];
@@ -312,6 +322,29 @@ export class FirecrawlClient {
     options?: SearchOptions,
   ): Promise<SearchResponse> {
     return await ctx.runAction(this.component.lib.search, { query, options });
+  }
+
+  /**
+   * Start a batch scrape of several URLs and return right away. Poll
+   * `getBatchScrape` with the returned id for progress and results.
+   */
+  async batchScrape(
+    ctx: ActionCtx,
+    urls: string[],
+    options?: ScrapeOptions,
+  ): Promise<{ id: string; url?: string }> {
+    return await ctx.runAction(this.component.lib.batchScrape, {
+      urls,
+      options,
+    });
+  }
+
+  /** Status and documents of a batch scrape, fetched live from Firecrawl. */
+  async getBatchScrape(
+    ctx: ActionCtx,
+    jobId: string,
+  ): Promise<BatchScrapeStatus> {
+    return await ctx.runAction(this.component.lib.getBatchScrape, { jobId });
   }
 
   /**

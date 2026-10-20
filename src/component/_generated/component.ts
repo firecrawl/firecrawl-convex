@@ -277,6 +277,76 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       >;
     };
     lib: {
+      batchScrape: FunctionReference<
+        "action",
+        "internal",
+        {
+          options?: {
+            actions?: Array<any>;
+            blockAds?: boolean;
+            excludeTags?: Array<string>;
+            extra?: Record<string, any>;
+            formats?: Array<
+              | "markdown"
+              | "html"
+              | "rawHtml"
+              | "links"
+              | "images"
+              | "screenshot"
+              | "summary"
+              | "changeTracking"
+              | "json"
+              | "attributes"
+              | "branding"
+              | "product"
+              | "menu"
+              | "audio"
+              | "video"
+              | {
+                  fullPage?: boolean;
+                  mode?: string;
+                  modes?: Array<string>;
+                  prompt?: string;
+                  quality?: number;
+                  query?: string;
+                  question?: string;
+                  schema?: any;
+                  selectors?: Array<{ attribute: string; selector: string }>;
+                  tag?: string;
+                  type: string;
+                  viewport?: { height: number; width: number };
+                }
+            >;
+            headers?: Record<string, string>;
+            includeTags?: Array<string>;
+            location?: { country?: string; languages?: Array<string> };
+            lockdown?: boolean;
+            maxAge?: number;
+            minAge?: number;
+            mobile?: boolean;
+            onlyMainContent?: boolean;
+            parsers?: Array<string | any>;
+            proxy?: string;
+            redactPII?: boolean | any;
+            removeBase64Images?: boolean;
+            skipTlsVerification?: boolean;
+            storeInCache?: boolean;
+            timeout?: number;
+            waitFor?: number;
+            zeroDataRetention?: boolean;
+          };
+          urls: Array<string>;
+        },
+        { id: string; url?: string },
+        Name
+      >;
+      getBatchScrape: FunctionReference<
+        "action",
+        "internal",
+        { jobId: string },
+        any,
+        Name
+      >;
       map: FunctionReference<
         "action",
         "internal",
