@@ -107,6 +107,122 @@ describe("map", () => {
   });
 });
 
+describe("batchScrape", () => {
+  test("posts the urls and options to /v2/batch/scrape", async () => {
+    const t = initConvexTest();
+    const { calls } = mockFetch([
+      {
+        body: {
+          success: true,
+          id: "batch-1",
+          url: "https://api.firecrawl.dev/v2/batch/scrape/batch-1",
+        },
+      },
+    ]);
+
+    const result = await t.action(api.lib.batchScrape, {
+      urls: ["https://a.com", "https://b.com"],
+      options: { formats: ["markdown"], extra: { maxConcurrency: 2 } },
+    });
+
+    expect(result).toEqual({
+      id: "batch-1",
+      url: "https://api.firecrawl.dev/v2/batch/scrape/batch-1",
+    });
+    expect(calls[0].url).toBe("https://api.firecrawl.dev/v2/batch/scrape");
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].body).toEqual({
+      origin: "firecrawl-convex",
+      urls: ["https://a.com", "https://b.com"],
+      formats: ["markdown"],
+      maxConcurrency: 2,
+    });
+  });
+
+  test("fails when Firecrawl returns no job id", async () => {
+    const t = initConvexTest();
+    mockFetch([{ body: { success: true } }]);
+
+    await expect(
+      t.action(api.lib.batchScrape, { urls: ["https://a.com"] }),
+    ).rejects.toThrow(/did not return a job id/);
+  });
+});
+
+describe("getBatchScrape", () => {
+  test("gets /v2/batch/scrape/<id> and returns status and data", async () => {
+    const t = initConvexTest();
+    const { calls } = mockFetch([
+      {
+        body: {
+          success: true,
+          status: "completed",
+          total: 2,
+          completed: 2,
+          creditsUsed: 2,
+          expiresAt: "2026-01-01T00:00:00.000Z",
+          next: "https://api.firecrawl.dev/v2/batch/scrape/batch-1?skip=2",
+          data: [
+            { markdown: "# A", metadata: { url: "https://a.com" } },
+            { markdown: "# B", metadata: { url: "https://b.com" } },
+          ],
+        },
+      },
+    ]);
+
+    const result = await t.action(api.lib.getBatchScrape, {
+      jobId: "batch-1",
+    });
+
+    expect(calls[0].url).toBe(
+      "https://api.firecrawl.dev/v2/batch/scrape/batch-1",
+    );
+    expect(calls[0].method).toBe("GET");
+    expect(calls[0].body).toBeUndefined();
+    expect(result).toEqual({
+      status: "completed",
+      total: 2,
+      completed: 2,
+      creditsUsed: 2,
+      next: "https://api.firecrawl.dev/v2/batch/scrape/batch-1?skip=2",
+      data: [
+        { markdown: "# A", metadata: { url: "https://a.com" } },
+        { markdown: "# B", metadata: { url: "https://b.com" } },
+      ],
+    });
+  });
+
+  test("encodes the job id and defaults data to an empty array", async () => {
+    const t = initConvexTest();
+    const { calls } = mockFetch([
+      { body: { success: true, status: "scraping", total: 3, completed: 0 } },
+    ]);
+
+    const result = await t.action(api.lib.getBatchScrape, { jobId: "a/b c" });
+
+    expect(calls[0].url).toBe(
+      "https://api.firecrawl.dev/v2/batch/scrape/a%2Fb%20c",
+    );
+    expect(result).toEqual({
+      status: "scraping",
+      total: 3,
+      completed: 0,
+      data: [],
+    });
+  });
+
+  test("surfaces an unknown job as an error", async () => {
+    const t = initConvexTest();
+    mockFetch([
+      { status: 404, body: { success: false, error: "Job not found" } },
+    ]);
+
+    await expect(
+      t.action(api.lib.getBatchScrape, { jobId: "missing" }),
+    ).rejects.toThrow(/404.*Job not found/);
+  });
+});
+
 describe("search", () => {
   test("returns the source-grouped results", async () => {
     const t = initConvexTest();

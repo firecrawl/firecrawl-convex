@@ -1,6 +1,6 @@
 {
   "name": "@firecrawl/firecrawl-convex",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Firecrawl component for Convex: scrape, map, and search the web, and run durable crawls with reactive progress.",
   "keywords": [
     "convex",

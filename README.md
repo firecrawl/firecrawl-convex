@@ -29,6 +29,7 @@ const { crawlId } = await firecrawl.startCrawl(ctx, {
 | `scrape` | One URL → markdown, HTML, screenshot, summary, structured JSON |
 | `map` | Every URL on a site, fast |
 | `search` | Web search, optionally scraping each result |
+| `batchScrape` | Many URLs with the same options in one job, polled with `getBatchScrape` |
 | `startCrawl` | A whole site, tracked in your database: reactive status, pages as they arrive, a completion callback |
 
 Crawls are the reason this is a component rather than a few `fetch` calls. A
@@ -137,7 +138,33 @@ before this package catches up, go through `extra`:
 await firecrawl.scrape(ctx, url, { extra: { threatProtection: { mode: "off" } } });
 ```
 
-`scrape`, `map`, and `search` return the API response as-is (validated as
+### Batch scrape
+
+`batchScrape` starts one Firecrawl job for a list of URLs that share scrape
+options and returns `{ id, url }` right away. `getBatchScrape` fetches the job's
+status and the documents scraped so far:
+
+```ts
+export const scrapeMany = action({
+  args: { urls: v.array(v.string()) },
+  handler: (ctx, args) =>
+    firecrawl.batchScrape(ctx, args.urls, { formats: ["markdown"] }),
+});
+
+export const scrapeManyStatus = action({
+  args: { jobId: v.string() },
+  handler: (ctx, args) => firecrawl.getBatchScrape(ctx, args.jobId),
+});
+// → { status, total, completed, creditsUsed, next, data }
+```
+
+Batch scrapes are stateless: nothing is stored in the component's tables and no
+webhook is registered, so poll `getBatchScrape` (for example from a scheduled
+action) until `status` is `completed`. When `next` is set, the remaining
+documents are behind that URL. Batch-only API fields such as
+`maxConcurrency` or `ignoreInvalidURLs` go through `extra`.
+
+`scrape`, `map`, `search`, and `getBatchScrape` return the API response as-is (validated as
 `v.any()` at the component boundary) rather than a re-modelled shape, so a new
 response field is available the day Firecrawl ships it. The `FirecrawlClient`
 methods give you TypeScript types over those responses.

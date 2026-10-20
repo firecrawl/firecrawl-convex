@@ -20,6 +20,17 @@ export const searchWeb = actionGeneric({
     await firecrawl.search(ctx, args.query, { limit: 2 }),
 });
 
+export const batchScrapePages = actionGeneric({
+  args: { urls: v.array(v.string()) },
+  handler: async (ctx, args) =>
+    await firecrawl.batchScrape(ctx, args.urls, { formats: ["markdown"] }),
+});
+
+export const batchScrapeStatus = actionGeneric({
+  args: { jobId: v.string() },
+  handler: async (ctx, args) => await firecrawl.getBatchScrape(ctx, args.jobId),
+});
+
 export const crawlSite = actionGeneric({
   args: { url: v.string() },
   handler: async (ctx, args) =>
@@ -35,6 +46,8 @@ const testApi = (
     "index.test": {
       scrapePage: typeof scrapePage;
       searchWeb: typeof searchWeb;
+      batchScrapePages: typeof batchScrapePages;
+      batchScrapeStatus: typeof batchScrapeStatus;
       crawlSite: typeof crawlSite;
     };
   }>
@@ -70,6 +83,42 @@ describe("FirecrawlClient", () => {
 
     expect(results).toEqual({ web: [{ url: "https://a.com" }] });
     expect(calls[0].body).toMatchObject({ query: "convex", limit: 2 });
+  });
+
+  test("batchScrape starts a job and getBatchScrape reads it back", async () => {
+    const t = initConvexTest();
+    const calls = mockFetch([
+      { success: true, id: "batch-1", url: "https://api.firecrawl.dev/v2/batch/scrape/batch-1" },
+      {
+        success: true,
+        status: "completed",
+        total: 1,
+        completed: 1,
+        creditsUsed: 1,
+        data: [{ markdown: "# A" }],
+      },
+    ]);
+
+    const { id } = await t.action(testApi.batchScrapePages, {
+      urls: ["https://a.com"],
+    });
+    const status = await t.action(testApi.batchScrapeStatus, { jobId: id });
+
+    expect(id).toBe("batch-1");
+    expect(calls[0].body).toMatchObject({
+      urls: ["https://a.com"],
+      formats: ["markdown"],
+    });
+    expect(calls[1].url).toBe(
+      "https://api.firecrawl.dev/v2/batch/scrape/batch-1",
+    );
+    expect(status).toEqual({
+      status: "completed",
+      total: 1,
+      completed: 1,
+      creditsUsed: 1,
+      data: [{ markdown: "# A" }],
+    });
   });
 
   test("startCrawl returns ids the app can subscribe to", async () => {
