@@ -122,7 +122,9 @@ export type MapResult = { id?: string; links: MapLink[] };
 
 export type SearchOptions = {
   sources?: Array<"web" | "news" | "images" | { type: string }>;
-  categories?: Array<"github" | "research" | "pdf" | "developer" | { type: string }>;
+  categories?: Array<
+    "github" | "research" | "pdf" | "developer" | { type: string }
+  >;
   includeDomains?: string[];
   excludeDomains?: string[];
   limit?: number;
@@ -148,6 +150,33 @@ export type SearchResponse = {
   news?: Array<SearchResult | FirecrawlDocument>;
   images?: Array<SearchResult | FirecrawlDocument>;
   developer?: Array<SearchResult | FirecrawlDocument>;
+};
+
+export type FindToolsOptions = {
+  limit?: number;
+  offset?: number;
+  providers?: string[];
+  capabilities?: string[];
+  level?: "providers" | "tools";
+  expand?: Array<"options" | "response" | "examples">;
+  [key: string]: unknown;
+};
+
+export type ProviderTool = {
+  id: string;
+  provider: string;
+  capability: string;
+  name?: string;
+  description?: string;
+  creditsCost?: number;
+  [key: string]: unknown;
+};
+
+export type FindToolsResult = {
+  items: ProviderTool[];
+  total?: number;
+  next?: unknown;
+  [key: string]: unknown;
 };
 
 export type CrawlOptions = {
@@ -312,6 +341,32 @@ export class FirecrawlClient {
     options?: SearchOptions,
   ): Promise<SearchResponse> {
     return await ctx.runAction(this.component.lib.search, { query, options });
+  }
+
+  /** Find data provider tools (Alexandria) for a task. Free. */
+  async findTools(
+    ctx: ActionCtx,
+    query?: string,
+    options?: FindToolsOptions,
+  ): Promise<FindToolsResult> {
+    return await ctx.runAction(this.component.lib.findTools, {
+      query,
+      options,
+    });
+  }
+
+  /** Run one data provider tool found with `findTools`; costs that tool's credits. */
+  async runProviderTool(
+    ctx: ActionCtx,
+    provider: string,
+    capability: string,
+    options?: Record<string, unknown>,
+  ): Promise<unknown> {
+    return await ctx.runAction(this.component.lib.runProviderTool, {
+      provider,
+      capability,
+      options,
+    });
   }
 
   /**

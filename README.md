@@ -2,9 +2,9 @@
 
 [![npm version](https://img.shields.io/npm/v/@firecrawl/firecrawl-convex.svg)](https://www.npmjs.com/package/@firecrawl/firecrawl-convex)
 
-Scrape, map, and search the web from Convex functions, and run **durable crawls**
-whose progress and pages live in your Convex database — so your UI subscribes to
-a crawl instead of polling for it.
+Scrape, map, and search the web from Convex functions, and run **durable
+crawls** whose progress and pages live in your Convex database — so your UI
+subscribes to a crawl instead of polling for it.
 
 ```ts
 const firecrawl = new FirecrawlClient(components.firecrawl);
@@ -24,11 +24,11 @@ const { crawlId } = await firecrawl.startCrawl(ctx, {
 
 ## What you get
 
-| | |
-| --- | --- |
-| `scrape` | One URL → markdown, HTML, screenshot, summary, structured JSON |
-| `map` | Every URL on a site, fast |
-| `search` | Web search, optionally scraping each result |
+|              |                                                                                                      |
+| ------------ | ---------------------------------------------------------------------------------------------------- |
+| `scrape`     | One URL → markdown, HTML, screenshot, summary, structured JSON                                       |
+| `map`        | Every URL on a site, fast                                                                            |
+| `search`     | Web search, optionally scraping each result                                                          |
 | `startCrawl` | A whole site, tracked in your database: reactive status, pages as they arrive, a completion callback |
 
 Crawls are the reason this is a component rather than a few `fetch` calls. A
@@ -104,7 +104,10 @@ export const scrapePage = action({
   handler: async (ctx, args) => {
     await requireUser(ctx);
     return await firecrawl.scrape(ctx, args.url, {
-      formats: ["markdown", { type: "json", prompt: "Extract the pricing table" }],
+      formats: [
+        "markdown",
+        { type: "json", prompt: "Extract the pricing table" },
+      ],
       onlyMainContent: true,
       maxAge: 3_600_000, // reuse Firecrawl's cache for an hour
     });
@@ -126,21 +129,56 @@ export const searchWeb = action({
 });
 ```
 
-Option names match the [Firecrawl v2 API](https://docs.firecrawl.dev/api-reference/v2-introduction)
-and are passed through untouched, so the Firecrawl docs are the reference for
-what they do. The typed surface covers the common options; a few enterprise and
-niche ones (`profile`, `threatProtection`, `auditMetadata`, search `enterprise`)
-are deliberately left out of the types. Those, and anything Firecrawl ships
-before this package catches up, go through `extra`:
+Option names match the
+[Firecrawl v2 API](https://docs.firecrawl.dev/api-reference/v2-introduction) and
+are passed through untouched, so the Firecrawl docs are the reference for what
+they do. The typed surface covers the common options; a few enterprise and niche
+ones (`profile`, `threatProtection`, `auditMetadata`, search `enterprise`) are
+deliberately left out of the types. Those, and anything Firecrawl ships before
+this package catches up, go through `extra`:
 
 ```ts
-await firecrawl.scrape(ctx, url, { extra: { threatProtection: { mode: "off" } } });
+await firecrawl.scrape(ctx, url, {
+  extra: { threatProtection: { mode: "off" } },
+});
 ```
 
 `scrape`, `map`, and `search` return the API response as-is (validated as
 `v.any()` at the component boundary) rather than a re-modelled shape, so a new
 response field is available the day Firecrawl ships it. The `FirecrawlClient`
 methods give you TypeScript types over those responses.
+
+## Data provider tools
+
+`findTools` searches Firecrawl's catalogue of data provider tools (Alexandria),
+such as npm download counts or package metadata, and is free. `runProviderTool`
+runs one of them and costs that tool's credits (each item's `creditsCost`).
+
+```ts
+export const npmDownloads = action({
+  args: { packages: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    await requireUser(ctx);
+    const { items } = await firecrawl.findTools(ctx, "npm package downloads", {
+      limit: 3,
+    });
+    const tool = items[0];
+    return await firecrawl.runProviderTool(
+      ctx,
+      tool.provider,
+      tool.capability,
+      {
+        packages: args.packages,
+        period: "last-week",
+      },
+    );
+  },
+});
+```
+
+Pass
+`{ providers: [provider], capabilities: [capability], expand: ["options", "examples"] }`
+to `findTools` to read a tool's options before you call it.
 
 ## Durable crawls
 
@@ -190,7 +228,11 @@ function CrawlView({ crawlId }: { crawlId: string }) {
   return (
     <>
       <progress value={crawl?.pageCount ?? 0} max={crawl?.total ?? 1} />
-      <ul>{results.map((p) => <li key={p._id}>{p.url}</li>)}</ul>
+      <ul>
+        {results.map((p) => (
+          <li key={p._id}>{p.url}</li>
+        ))}
+      </ul>
     </>
   );
 }
@@ -207,7 +249,11 @@ export const onCrawlComplete = internalMutation({
   args: {
     crawlId: v.string(),
     jobId: v.optional(v.string()),
-    status: v.union(v.literal("completed"), v.literal("failed"), v.literal("cancelled")),
+    status: v.union(
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("cancelled"),
+    ),
     pageCount: v.number(),
     unstored: v.optional(v.number()),
     error: v.optional(v.string()),
@@ -215,7 +261,8 @@ export const onCrawlComplete = internalMutation({
   },
   handler: async (ctx, args) => {
     if (args.status !== "completed") return;
-    if (args.unstored) console.warn(`${args.unstored} pages were too large to store`);
+    if (args.unstored)
+      console.warn(`${args.unstored} pages were too large to store`);
     // e.g. hand the pages to an embedding pipeline
     await ctx.scheduler.runAfter(0, internal.rag.indexCrawl, {
       crawlId: args.crawlId,
@@ -227,11 +274,11 @@ export const onCrawlComplete = internalMutation({
 
 ### Webhook mode vs poll mode
 
-| | webhook (default) | poll |
-| --- | --- | --- |
+|                  | webhook (default)                                                                   | poll                                                        |
+| ---------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | How pages arrive | Firecrawl pushes `crawl.page` events; a slow watchdog poll catches anything dropped | the component polls the status endpoint, backing off to 30s |
-| Requires | `httpPrefix` mounted, and a deployment Firecrawl can reach over the internet | nothing |
-| Use it when | normal cloud deployments | local dev, self-hosted behind a firewall |
+| Requires         | `httpPrefix` mounted, and a deployment Firecrawl can reach over the internet        | nothing                                                     |
+| Use it when      | normal cloud deployments                                                            | local dev, self-hosted behind a firewall                    |
 
 ```ts
 await firecrawl.startCrawl(ctx, { url, mode: "poll" });
@@ -249,12 +296,12 @@ rejected with 401, and nothing is written.
 ### Other crawl operations
 
 ```ts
-await firecrawl.getCrawlByJobId(ctx, jobId);       // look up by Firecrawl's id
+await firecrawl.getCrawlByJobId(ctx, jobId); // look up by Firecrawl's id
 await firecrawl.listCrawls(ctx, { status: "scraping", limit: 20 });
 await firecrawl.getPage(ctx, { crawlId, url });
-await firecrawl.cancelCrawl(ctx, crawlId);         // action
-await firecrawl.deleteCrawl(ctx, crawlId);         // mutation: crawl + its pages
-await firecrawl.resumeCrawl(ctx, crawlId);         // mutation: see below
+await firecrawl.cancelCrawl(ctx, crawlId); // action
+await firecrawl.deleteCrawl(ctx, crawlId); // mutation: crawl + its pages
+await firecrawl.resumeCrawl(ctx, crawlId); // mutation: see below
 ```
 
 The component stops checking on a crawl after ~250 status checks (roughly two
@@ -269,16 +316,16 @@ useful when you just want the callback, or when you re-fetch content elsewhere.
 ## Good to know
 
 - **Errors** are `ConvexError`s carrying `{ code, status, path, message }`, so
-  you can branch on `error.data.status === 402` (out of credits) or
-  `429` (rate limited). Transient failures (408, 425, 429, 5xx) are retried
-  three times with backoff, honoring `Retry-After`.
-- **Document limits.** Convex documents cap at 1MB, so every page is budgeted
-  in UTF-8 bytes across the whole document before it's written. Text and link
-  lists are truncated; a screenshot, extracted `json`, or `changeTracking` blob
-  that doesn't fit is dropped whole; oversized `metadata` falls back to its
-  essential keys. Any of that sets `truncated: true` on the page. If Firecrawl
-  returns pages that still can't be stored, the count shows up as `unstored` on
-  the crawl and in the `onComplete` payload — never silently. For very large
+  you can branch on `error.data.status === 402` (out of credits) or `429` (rate
+  limited). Transient failures (408, 425, 429, 5xx) are retried three times with
+  backoff, honoring `Retry-After`.
+- **Document limits.** Convex documents cap at 1MB, so every page is budgeted in
+  UTF-8 bytes across the whole document before it's written. Text and link lists
+  are truncated; a screenshot, extracted `json`, or `changeTracking` blob that
+  doesn't fit is dropped whole; oversized `metadata` falls back to its essential
+  keys. Any of that sets `truncated: true` on the page. If Firecrawl returns
+  pages that still can't be stored, the count shows up as `unstored` on the
+  crawl and in the `onComplete` payload — never silently. For very large
   corpora, consider `storeContent: false` plus your own storage.
 - **Credits** show up as `creditsUsed` on the crawl row and in each page's
   `metadata`.

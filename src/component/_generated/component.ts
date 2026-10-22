@@ -277,6 +277,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       >;
     };
     lib: {
+      findTools: FunctionReference<
+        "action",
+        "internal",
+        { options?: Record<string, any>; query?: string },
+        any,
+        Name
+      >;
       map: FunctionReference<
         "action",
         "internal",
@@ -292,6 +299,17 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             timeout?: number;
           };
           url: string;
+        },
+        any,
+        Name
+      >;
+      runProviderTool: FunctionReference<
+        "action",
+        "internal",
+        {
+          capability: string;
+          options?: Record<string, any>;
+          provider: string;
         },
         any,
         Name

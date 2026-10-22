@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- `findTools` and `runProviderTool` actions (and `FirecrawlClient` methods) for
+  Firecrawl's data provider tools (Alexandria), over `/v2/scrape`.
+
 ## 0.1.1
 
 Packaging fixes. No runtime changes.
@@ -16,15 +21,15 @@ Packaging fixes. No runtime changes.
 
 Initial release.
 
-- `scrape`, `map`, and `search` actions over the Firecrawl v2 API, running in the
-  Convex runtime (no `"use node"`, no bundled SDK).
+- `scrape`, `map`, and `search` actions over the Firecrawl v2 API, running in
+  the Convex runtime (no `"use node"`, no bundled SDK).
 - Durable crawls: `startCrawl` tracks a crawl in the component's own tables,
   advanced by Firecrawl webhooks with a poll watchdog behind them, and exposes
   reactive `getCrawl` / `listPages` queries plus an `onComplete` callback.
 - Webhook deliveries verified by `X-Firecrawl-Signature` HMAC and a per-crawl
   token.
-- Typed `FirecrawlClient` for app code, and a `@firecrawl/firecrawl-convex/test` helper for
-  registering the component in `convex-test`.
+- Typed `FirecrawlClient` for app code, and a `@firecrawl/firecrawl-convex/test`
+  helper for registering the component in `convex-test`.
 - Page documents are budgeted in UTF-8 bytes across every variable-sized field,
   so oversized `metadata`, `json`, `changeTracking`, or `links` can't push a
   write past Convex's 1MB limit. Pages that still can't be stored are counted as

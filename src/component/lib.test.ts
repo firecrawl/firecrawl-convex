@@ -12,7 +12,12 @@ describe("scrape", () => {
   test("posts to /v2/scrape and returns the document", async () => {
     const t = initConvexTest();
     const { calls } = mockFetch([
-      { body: { success: true, data: { markdown: "# Hi", metadata: { url: "https://a.com" } } } },
+      {
+        body: {
+          success: true,
+          data: { markdown: "# Hi", metadata: { url: "https://a.com" } },
+        },
+      },
     ]);
 
     const document = await t.action(api.lib.scrape, {
@@ -46,11 +51,15 @@ describe("scrape", () => {
 
   test("surfaces API errors with status and message", async () => {
     const t = initConvexTest();
-    mockFetch([{ status: 402, body: { success: false, error: "Insufficient credits" } }]);
+    mockFetch([
+      { status: 402, body: { success: false, error: "Insufficient credits" } },
+    ]);
 
     await expect(
       t.action(api.lib.scrape, { url: "https://a.com" }),
-    ).rejects.toThrow(/Firecrawl \/v2\/scrape failed \(402\): Insufficient credits/);
+    ).rejects.toThrow(
+      /Firecrawl \/v2\/scrape failed \(402\): Insufficient credits/,
+    );
   });
 
   test("retries a 429 and succeeds", async () => {
@@ -87,7 +96,10 @@ describe("map", () => {
         body: {
           success: true,
           id: "map-1",
-          links: ["https://a.com/one", { url: "https://a.com/two", title: "Two" }],
+          links: [
+            "https://a.com/one",
+            { url: "https://a.com/two", title: "Two" },
+          ],
         },
       },
     ]);
@@ -146,5 +158,87 @@ describe("withExtra", () => {
 
   test("returns an empty object for no options", () => {
     expect(withExtra(undefined)).toEqual({});
+  });
+});
+
+describe("data provider tools", () => {
+  test("findTools sends a free find-tools call and returns its data", async () => {
+    const t = initConvexTest();
+    const { calls } = mockFetch([
+      {
+        body: {
+          success: true,
+          data: {
+            alexandria: [
+              {
+                provider: "firecrawl",
+                capability: "find-tools",
+                data: {
+                  items: [
+                    {
+                      id: "npmjs-com/packages/get_downloads",
+                      provider: "npmjs-com",
+                      capability: "packages/get_downloads",
+                    },
+                  ],
+                  total: 1,
+                },
+              },
+            ],
+          },
+        },
+      },
+    ]);
+
+    const result = await t.action(api.lib.findTools, {
+      query: "npm downloads",
+      options: { limit: 1 },
+    });
+
+    expect(result.items[0].provider).toBe("npmjs-com");
+    expect(calls[0].url).toBe("https://api.firecrawl.dev/v2/scrape");
+    expect(calls[0].body).toEqual({
+      origin: "firecrawl-convex",
+      alexandria: [
+        {
+          provider: "firecrawl",
+          capability: "find-tools",
+          options: { limit: 1, query: "npm downloads" },
+        },
+      ],
+    });
+  });
+
+  test("runProviderTool raises the tool's error", async () => {
+    const t = initConvexTest();
+    mockFetch([
+      {
+        body: {
+          success: true,
+          data: {
+            alexandria: [
+              {
+                provider: "npmjs-com",
+                capability: "packages/get_downloads",
+                error: {
+                  code: "missing_option",
+                  message: "packages/get_downloads requires packages.",
+                  status: 400,
+                },
+              },
+            ],
+          },
+        },
+      },
+    ]);
+
+    await expect(
+      t.action(api.lib.runProviderTool, {
+        provider: "npmjs-com",
+        capability: "packages/get_downloads",
+      }),
+    ).rejects.toThrow(
+      /npmjs-com\/packages\/get_downloads failed: packages\/get_downloads requires packages/,
+    );
   });
 });
